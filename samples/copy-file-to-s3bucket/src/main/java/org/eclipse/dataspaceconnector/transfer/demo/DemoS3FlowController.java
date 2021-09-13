@@ -16,7 +16,6 @@ package org.eclipse.dataspaceconnector.transfer.demo;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.eclipse.dataspaceconnector.provision.aws.AwsTemporarySecretToken;
 import org.eclipse.dataspaceconnector.schema.s3.S3BucketSchema;
@@ -30,17 +29,12 @@ import org.eclipse.dataspaceconnector.spi.types.domain.transfer.DataRequest;
 import org.jetbrains.annotations.NotNull;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.time.temporal.ChronoUnit;
-import java.util.Map;
-import java.util.Objects;
 
 public class DemoS3FlowController implements DataFlowController {
     private final Vault vault;
@@ -57,42 +51,57 @@ public class DemoS3FlowController implements DataFlowController {
 
     @Override
     public boolean canHandle(DataRequest dataRequest) {
-        return true;
+        return "dataspaceconnector:s3".equals(dataRequest.getDataDestination().getType());
     }
 
     @Override
     public @NotNull DataFlowInitiateResponse initiateFlow(DataRequest dataRequest) {
 
-        var awsSecretName = dataRequest.getDataDestination().getKeyName();
-        var awsSecret = vault.resolveSecret(awsSecretName);
-        var bucketName = dataRequest.getDataDestination().getProperty(S3BucketSchema.BUCKET_NAME);
+        final String sourceKey = dataRequest.getDataEntry().getCatalogEntry().getAddress()
+            .getKeyName();
+
+        final String sourceBucketName = dataRequest.getDataEntry().getCatalogEntry().getAddress()
+            .getProperty(S3BucketSchema.BUCKET_NAME);
+
+        var destinationKey = dataRequest.getDataDestination().getKeyName();
+        var awsSecret = vault.resolveSecret(destinationKey);
+        var destinationBucketName = dataRequest.getDataDestination().getProperty(S3BucketSchema.BUCKET_NAME);
 
         var region = dataRequest.getDataDestination().getProperty(S3BucketSchema.REGION);
         var dt = convertSecret(awsSecret);
 
-        return copyToBucket(bucketName, region, dt);
-
+        return copyToBucket(destinationBucketName, region, dt, destinationKey, sourceBucketName, sourceKey);
     }
 
     @NotNull
-    private DataFlowInitiateResponse copyToBucket(String bucketName, String region, AwsTemporarySecretToken dt) {
-
-
+    private DataFlowInitiateResponse copyToBucket(
+        String destinationBucketName,
+        String region,
+        AwsTemporarySecretToken dt,
+        final String destinationKey,
+        final String sourceBucketName,
+        final String sourceKey
+    ) {
         try (S3Client s3 = S3Client.builder()
                 .credentialsProvider(StaticCredentialsProvider.create(AwsSessionCredentials.create(dt.getAccessKeyId(), dt.getSecretAccessKey(), dt.getSessionToken())))
                 .region(Region.of(region))
                 .build()) {
 
             String etag = null;
-            PutObjectRequest request = createRequest(bucketName, "demo-image");
-            PutObjectRequest completionMarker = createRequest(bucketName, "asdf.complete");
 
             try {
                 monitor.debug("Data request: begin transfer...");
-                var response = Failsafe.with(retryPolicy).get(() -> s3.putObject(request, RequestBody.fromBytes(createRandomContent())));
-                var response2 = Failsafe.with(retryPolicy).get(() -> s3.putObject(completionMarker, RequestBody.empty()));
+
+                final CopyObjectRequest copyObjectRequest = CopyObjectRequest.builder()
+                    .copySource(sourceBucketName + "/" + sourceKey)
+                    .destinationBucket(destinationBucketName)
+                    .destinationKey(destinationKey)
+                    .build();
+
+                var response = s3.copyObject(copyObjectRequest);
+
                 monitor.debug("Data request done.");
-                etag = response.eTag();
+                etag = response.copyObjectResult().eTag();
             } catch (S3Exception tmpEx) {
                 monitor.info("Data request: transfer not successful");
             }
@@ -112,23 +121,6 @@ public class DemoS3FlowController implements DataFlowController {
             e.printStackTrace();
         }
         return null;
-    }
-
-    private PutObjectRequest createRequest(String bucketName, String objectKey) {
-        return PutObjectRequest.builder()
-                .bucket(bucketName)
-                .metadata(Map.of("name", "demo_image.jpg"))
-                .key(objectKey)
-                .build();
-    }
-
-    private byte[] createRandomContent() {
-        InputStream resourceAsStream = Thread.currentThread().getContextClassLoader().getResourceAsStream("demo_image.jpg");
-        try {
-            return Objects.requireNonNull(resourceAsStream).readAllBytes();
-        } catch (IOException e) {
-            throw new EdcException(e);
-        }
     }
 }
 

@@ -1,0 +1,70 @@
+{
+	"info": {
+		"_postman_id": "7746c5ca-048b-42f1-8ef1-bc8ea7ba4c25",
+		"name": "IDS Eclipse",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Artifact request (Provision)",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"@id\" : \"http://localhost\",\r\n    \"@type\" : \"ids:ArtifactRequestMessage\",\r\n    \"ids:securityToken\" : {\r\n        \"@type\" : \"ids:DynamicAttributeToken\",\r\n        \"@id\" : \"http://token\",\r\n        \"ids:tokenValue\" : \"mock-us\"\r\n    },\r\n    \"ids:requestedArtifact\" : \"demo_image.jpg\",\r\n\r\n    \"dataspaceconnector-destination-token\" : \r\n\"{ \\\"edctype\\\" : \\\"dataspaceconnector:secrettoken\\\"  , \\\"sessionToken\\\" : \\\"{{sessionToken}}\\\", \\\"accessKeyId\\\" : \\\"{{accessKeyId}}\\\", \\\"secretAccessKey\\\" : \\\"{{secretAccessKey}}\\\" }\",\r\n    \"dataspaceconnector-data-destination\" : {\r\n        \"type\" : \"dataspaceconnector:s3\",\r\n        \"keyName\" : \"new_demo_image.jpg\",\r\n        \"properties\" : {\r\n            \"bucketName\" : \"041167962674-eu-central-1-gaia-x-data\",\r\n            \"region\" : \"eu-central-1\"\r\n        }\r\n    }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8181/api/ids/request",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8181",
+					"path": [
+						"api",
+						"ids",
+						"request"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Artifact request (Consumer)",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"connector\" : \"localhost:8181\",\r\n    \"artifact\" : \"data/ten=presiot/data/ten=presiot/RC-MY/test.txt/part-00000-beb25069-8ffc-496d-be96-bcda0ed55edd-c000.csv\",\r\n    \"destinationName\" : \"part-00000-beb25069-8ffc-496d-be96-bcda0ed55edd-c000.csv\",\r\n    \"destinationBucket\" : \"041167962674-eu-central-1-gaia-x-data\",\r\n    \"destinationRegion\" : \"eu-central-1\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8181/api/demo-ui/data/request",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8181",
+					"path": [
+						"api",
+						"demo-ui",
+						"data",
+						"request"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

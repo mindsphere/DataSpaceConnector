@@ -38,6 +38,11 @@ dependencies {
     implementation(project(":data-protocols:ids:ids-policy-mock"))
     implementation(project(":extensions:filesystem:configuration-fs"))
 
+    implementation(project(":samples:copy-file-to-s3bucket"))
+    implementation(project(":samples:public-rest-api"))
+    implementation(project(":extensions:filesystem:vault-fs"))
+
+
     testImplementation("org.junit.jupiter:junit-jupiter-api:${jupiterVersion}")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${jupiterVersion}")
 

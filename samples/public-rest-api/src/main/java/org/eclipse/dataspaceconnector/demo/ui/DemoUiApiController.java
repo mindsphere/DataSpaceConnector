@@ -14,16 +14,21 @@
 
 package org.eclipse.dataspaceconnector.demo.ui;
 
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import org.eclipse.dataspaceconnector.spi.message.RemoteMessageDispatcherRegistry;
 import org.eclipse.dataspaceconnector.spi.monitor.Monitor;
 import org.eclipse.dataspaceconnector.spi.transfer.TransferProcessManager;
 import org.eclipse.dataspaceconnector.spi.types.domain.metadata.DataEntry;
 import org.eclipse.dataspaceconnector.spi.types.domain.metadata.QueryRequest;
+import org.eclipse.dataspaceconnector.spi.types.domain.transfer.DataAddress;
 import org.eclipse.dataspaceconnector.spi.types.domain.transfer.DataRequest;
-import jakarta.ws.rs.*;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
-
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -37,63 +42,86 @@ import java.util.concurrent.ExecutionException;
 @Produces({MediaType.APPLICATION_JSON})
 @Path("/demo-ui")
 public class DemoUiApiController {
-    private static final String PREFIX = "http://";
+  private static final String PREFIX = "http://";
 
-    private final RemoteMessageDispatcherRegistry dispatcherRegistry;
-    private final TransferProcessManager processManager;
+  private final RemoteMessageDispatcherRegistry dispatcherRegistry;
 
-    private final Monitor monitor;
+  private final TransferProcessManager processManager;
 
-    public DemoUiApiController(RemoteMessageDispatcherRegistry dispatcherRegistry, TransferProcessManager processManager, Monitor monitor) {
-        this.dispatcherRegistry = dispatcherRegistry;
-        this.processManager = processManager;
-        this.monitor = monitor;
+  private final Monitor monitor;
+
+  public DemoUiApiController(
+      RemoteMessageDispatcherRegistry dispatcherRegistry,
+      TransferProcessManager processManager,
+      Monitor monitor
+  ) {
+    this.dispatcherRegistry = dispatcherRegistry;
+    this.processManager = processManager;
+    this.monitor = monitor;
+  }
+
+  @GET
+  @Path("artifacts/{connector}")
+  public Response getArtifacts(@PathParam("connector") String connector) {
+    try {
+      var query = QueryRequest.Builder.newInstance()
+          .connectorAddress(PREFIX + connector)
+          .connectorId(connector)
+          .queryLanguage("dataspaceconnector")
+          .query("select *")
+          .protocol("ids-rest").build();
+
+      @SuppressWarnings({"unchecked", "rawtypes"}) CompletableFuture<List<String>> future
+          = (CompletableFuture) dispatcherRegistry.send(List.class, query, () -> null);
+
+      var artifacts = future.get();
+      return Response.ok().entity(artifacts).build();
+    } catch (InterruptedException | ExecutionException e) {
+      monitor.severe("Error serving request", e);
+      return Response.serverError().build();
     }
+  }
 
-    @GET
-    @Path("artifacts/{connector}")
-    public Response getArtifacts(@PathParam("connector") String connector) {
-        try {
-            var query = QueryRequest.Builder.newInstance()
-                    .connectorAddress(PREFIX + connector)
-                    .connectorId(connector)
-                    .queryLanguage("dataspaceconnector")
-                    .query("select *")
-                    .protocol("ids-rest").build();
+  @POST
+  @Path("data/request")
+  public Response initiateDataRequest(Map<String, String> request) {
+    var connector = (String) request.get("connector");
+    var artifact = (String) request.get("artifact");
+    var destinationName = (String) request.get("destinationName");
+    var destinationBucket = (String) request.get("destinationBucket");
+    var destinationRegion = (String) request.get("destinationRegion");
+    var usRequest = createRequest(
+        connector,
+        UUID.randomUUID().toString(),
+        DataEntry.Builder.newInstance().id(artifact).build(),
+        destinationBucket,
+        destinationName,
+        destinationRegion);
 
-            @SuppressWarnings({"unchecked", "rawtypes"}) CompletableFuture<List<String>> future = (CompletableFuture) dispatcherRegistry.send(List.class, query, () -> null);
+    processManager.initiateConsumerRequest(usRequest);
+    return Response.ok().build();
+  }
 
-            var artifacts = future.get();
-            return Response.ok().entity(artifacts).build();
-
-        } catch (InterruptedException | ExecutionException e) {
-            monitor.severe("Error serving request", e);
-            return Response.serverError().build();
-        }
-
-    }
-
-    @POST
-    @Path("data/request")
-    public Response initiateDataRequest(Map<String, String> request) {
-        var connector = (String) request.get("connector");
-        var artifact = (String) request.get("artifact");
-        var usRequest = createRequest(connector, UUID.randomUUID().toString(), DataEntry.Builder.newInstance().id(artifact).build());
-
-        processManager.initiateConsumerRequest(usRequest);
-        return Response.ok().build();
-
-    }
-
-    private DataRequest createRequest(String connector, String id, DataEntry artifactId) {
-        return DataRequest.Builder.newInstance()
-                .id(id)
-                .protocol("ids-rest")
-                .dataEntry(artifactId)
-                .connectorId(connector)
-                .connectorAddress(PREFIX + connector)
-                .destinationType("dataspaceconnector:s3").build();
-    }
-
-
+  private DataRequest createRequest(
+      String connector,
+      String id,
+      DataEntry artifactId,
+      final String destinationBucket,
+      final String destinationName,
+      final String destinationRegion
+  ) {
+    return DataRequest.Builder.newInstance()
+        .id(id)
+        .protocol("ids-rest")
+        .dataEntry(artifactId)
+        .connectorId(connector)
+        .connectorAddress(PREFIX + connector)
+        .dataDestination(DataAddress.Builder.newInstance()
+            .keyName(destinationName)
+            .property("bucketName", destinationBucket)
+            .property("region", destinationRegion)
+            .type("dataspaceconnector:s3")
+            .build())
+        .build();
+  }
 }
