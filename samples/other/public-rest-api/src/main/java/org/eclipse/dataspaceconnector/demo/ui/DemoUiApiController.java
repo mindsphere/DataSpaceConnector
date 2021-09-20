@@ -87,9 +87,11 @@ public class DemoUiApiController {
   public Response initiateDataRequest(Map<String, String> request) {
     var connector = (String) request.get("connector");
     var artifact = (String) request.get("artifact");
-    var destinationName = (String) request.get("destinationName");
-    var destinationBucket = (String) request.get("destinationBucket");
-    var destinationRegion = (String) request.get("destinationRegion");
+
+    var destinationRegion = System.getProperty("destinationRegion");
+    var destinationBucket = System.getProperty("destinationBucket");
+    var destinationName = extractDestinationArtifactName(artifact);
+
     var usRequest = createRequest(
         connector,
         UUID.randomUUID().toString(),
@@ -102,14 +104,19 @@ public class DemoUiApiController {
     return Response.ok().build();
   }
 
+  private String extractDestinationArtifactName(String artifactId) {
+    return artifactId.substring(artifactId.lastIndexOf('/') + 1);
+  }
+
   private DataRequest createRequest(
-      String connector,
-      String id,
-      DataEntry artifactId,
+      final String connector,
+      final String id,
+      final DataEntry artifactId,
       final String destinationBucket,
       final String destinationName,
       final String destinationRegion
   ) {
+
     return DataRequest.Builder.newInstance()
         .id(id)
         .protocol("ids-rest")

@@ -16,4 +16,10 @@ This repository is forked from [Eclipse Dataspace Connector](https://github.com/
     `part-00000-beb25069-8ffc-496d-be96-bcda0ed55edd-c000.csv={ "edctype" \: "dataspaceconnector\:secrettoken"  , "sessionToken" \: "<...>", "accessKeyId" \: "<...>", "secretAccessKey" \: "<...>" }`
 
 * Build and run as described in _README.md_
+* Run as follows:
+
+    `java -jar -DdestinationBucket=<BUCKET_NAME> -DdestinationRegion=<REGION> launchers/basic/build/libs/dataspaceconnector-basic.jar`
+
 * Use postman collection in _/postman_ folder
+
+**NOTE:** Filename does not change during transfer.
