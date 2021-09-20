@@ -28,13 +28,14 @@ dependencies {
     implementation(project(":extensions:in-memory:policy-registry-memory"))
     implementation(project(":extensions:in-memory:metadata-memory"))
     implementation(project(":extensions:in-memory:transfer-store-memory"))
+    implementation(project(":extensions:in-memory:vault-memory"))
     implementation(project(":extensions:iam:iam-mock"))
     implementation(project(":data-protocols:ids:ids-policy-mock"))
     implementation(project(":extensions:filesystem:configuration-fs"))
 
     implementation(project(":samples:other:copy-file-to-s3bucket"))
     implementation(project(":samples:other:public-rest-api"))
-    implementation(project(":extensions:filesystem:vault-fs"))
+//    implementation(project(":extensions:filesystem:vault-fs"))
 
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:${jupiterVersion}")

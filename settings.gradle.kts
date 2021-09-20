@@ -90,3 +90,5 @@ include(":samples:05-file-transfer-cloud:consumer")
 include(":samples:05-file-transfer-cloud:provider")
 include(":samples:05-file-transfer-cloud:api")
 include(":samples:05-file-transfer-cloud:transfer-file")
+include("extensions:in-memory:vault-memory")
+findProject(":extensions:in-memory:vault-memory")?.name = "vault-memory"
